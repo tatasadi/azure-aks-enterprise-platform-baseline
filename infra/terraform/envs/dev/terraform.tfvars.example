@@ -1,0 +1,32 @@
+# Example Terraform variables file
+# Copy this file to terraform.tfvars and update with your values
+# terraform.tfvars is gitignored to prevent accidental commits of sensitive data
+
+environment  = "dev"
+location     = "germanywestcentral" # Or westeurope, northeurope
+project_name = "aksplatform"
+
+# AKS Configuration
+kubernetes_version = "1.28"
+aks_node_count     = 3
+aks_node_vm_size   = "Standard_D2s_v3"
+
+# Auto-scaling (optional)
+enable_auto_scaling = false
+min_node_count      = 3
+max_node_count      = 5
+
+# Grafana Admin Users
+# Add your Azure AD object ID to get admin access to Grafana
+# Find your object ID: az ad signed-in-user show --query id -o tsv
+grafana_admin_user_object_ids = [
+  # "12345678-1234-1234-1234-123456789012"
+]
+
+# Common tags
+tags = {
+  Project     = "AKS Enterprise Platform Baseline"
+  ManagedBy   = "Terraform"
+  Environment = "dev"
+  Owner       = "Platform Team"
+}
