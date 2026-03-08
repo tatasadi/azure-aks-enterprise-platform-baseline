@@ -11,15 +11,15 @@ resource "azurerm_kubernetes_cluster" "aks" {
   workload_identity_enabled = true
 
   default_node_pool {
-    name                = "system"
-    node_count          = var.enable_auto_scaling ? null : var.node_count
-    vm_size             = var.node_vm_size
-    vnet_subnet_id      = var.subnet_id
-    enable_auto_scaling = var.enable_auto_scaling
-    min_count           = var.enable_auto_scaling ? var.min_count : null
-    max_count           = var.enable_auto_scaling ? var.max_count : null
-    os_disk_size_gb     = 100
-    type                = "VirtualMachineScaleSets"
+    name                 = "system"
+    node_count           = var.enable_auto_scaling ? null : var.node_count
+    vm_size              = var.node_vm_size
+    vnet_subnet_id       = var.subnet_id
+    auto_scaling_enabled = var.enable_auto_scaling
+    min_count            = var.enable_auto_scaling ? var.min_count : null
+    max_count            = var.enable_auto_scaling ? var.max_count : null
+    os_disk_size_gb      = 100
+    type                 = "VirtualMachineScaleSets"
 
     upgrade_settings {
       max_surge = "10%"
@@ -41,6 +41,11 @@ resource "azurerm_kubernetes_cluster" "aks" {
   }
 
   # Enable Azure Monitor for containers (Container Insights)
+  monitor_metrics {
+    annotations_allowed = null
+    labels_allowed      = null
+  }
+
   oms_agent {
     log_analytics_workspace_id = var.log_analytics_workspace_id
   }

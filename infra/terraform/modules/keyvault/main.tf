@@ -12,7 +12,7 @@ resource "azurerm_key_vault" "keyvault" {
   purge_protection_enabled   = var.purge_protection_enabled
 
   # Enable RBAC authorization instead of access policies
-  enable_rbac_authorization = var.enable_rbac_authorization
+  rbac_authorization_enabled = var.enable_rbac_authorization
 
   # Optional VM and template integration
   enabled_for_deployment          = var.enabled_for_deployment

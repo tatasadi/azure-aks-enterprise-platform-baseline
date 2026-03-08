@@ -4,18 +4,17 @@ terraform {
   required_providers {
     azurerm = {
       source  = "hashicorp/azurerm"
-      version = "~> 3.80"
+      version = "~> 4.0"
     }
   }
 
   # Backend configuration for Azure Storage
-  # Uncomment and configure after creating storage account
-  # backend "azurerm" {
-  #   resource_group_name  = "terraform-state-rg"
-  #   storage_account_name = "tfstateaksplatform"
-  #   container_name       = "tfstate"
-  #   key                  = "dev.terraform.tfstate"
-  # }
+  backend "azurerm" {
+    resource_group_name  = "rg-terraform"
+    storage_account_name = "sttfstateta"
+    container_name       = "tfstate"
+    key                  = "azure-aks-dev.tfstate"
+  }
 }
 
 provider "azurerm" {

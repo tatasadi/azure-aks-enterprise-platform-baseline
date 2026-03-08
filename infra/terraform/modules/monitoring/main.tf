@@ -36,10 +36,11 @@ resource "azurerm_monitor_workspace" "prometheus" {
 
 # Azure Managed Grafana
 resource "azurerm_dashboard_grafana" "grafana" {
-  name                = var.grafana_name
-  location            = var.location
-  resource_group_name = var.resource_group_name
-  sku                 = var.grafana_sku
+  name                  = var.grafana_name
+  location              = var.location
+  resource_group_name   = var.resource_group_name
+  sku                   = var.grafana_sku
+  grafana_major_version = 11
 
   # Enable Azure Monitor Workspace integration
   azure_monitor_workspace_integrations {
