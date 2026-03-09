@@ -1,0 +1,31 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: sample-api
+  namespace: demo-app
+  labels:
+    app: sample-api
+    environment: dev
+    owner: platform-team
+  annotations:
+    # NGINX specific annotations
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+spec:
+  ingressClassName: webapprouting.kubernetes.azure.com
+  rules:
+  - host: demo.aks.internal
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: sample-api
+            port:
+              number: 80
+  # Optional TLS configuration (uncomment to enable)
+  # tls:
+  # - hosts:
+  #   - demo.aks.internal
+  #   secretName: sample-api-tls

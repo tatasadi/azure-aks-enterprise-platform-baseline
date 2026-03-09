@@ -107,14 +107,30 @@ module "keyvault" {
 module "acr" {
   source = "../../modules/acr"
 
-  resource_group_name = azurerm_resource_group.rg.name
-  location            = azurerm_resource_group.rg.location
-  acr_name            = local.acr_name
-  sku                 = var.acr_sku
-  aks_principal_id    = module.aks.cluster_identity_principal_id
-  tags                = var.tags
+  resource_group_name            = azurerm_resource_group.rg.name
+  location                       = azurerm_resource_group.rg.location
+  acr_name                       = local.acr_name
+  sku                            = var.acr_sku
+  aks_kubelet_identity_object_id = module.aks.kubelet_identity_object_id
+  tags                           = var.tags
 
   depends_on = [module.aks]
+}
+
+# Workload Identity for demo application
+module "demo_app_workload_identity" {
+  source = "../../modules/workload-identity"
+
+  identity_name        = "${var.project_name}-${var.environment}-demo-app-wi"
+  resource_group_name  = azurerm_resource_group.rg.name
+  location             = azurerm_resource_group.rg.location
+  oidc_issuer_url      = module.aks.oidc_issuer_url
+  namespace            = "demo-app"
+  service_account_name = "demo-sa"
+  keyvault_id          = module.keyvault.keyvault_id
+  tags                 = var.tags
+
+  depends_on = [module.aks, module.keyvault]
 }
 
 # Enable Azure Monitor managed Prometheus for AKS

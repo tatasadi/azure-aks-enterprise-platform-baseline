@@ -100,6 +100,17 @@ output "acr_id" {
   value       = module.acr.acr_id
 }
 
+# Workload Identity (Demo App)
+output "demo_app_workload_identity_client_id" {
+  description = "Client ID of the demo app workload identity (use in ServiceAccount annotation)"
+  value       = module.demo_app_workload_identity.client_id
+}
+
+output "demo_app_workload_identity_name" {
+  description = "Name of the demo app workload identity"
+  value       = module.demo_app_workload_identity.identity_name
+}
+
 # Instructions
 output "next_steps" {
   description = "Next steps after deployment"

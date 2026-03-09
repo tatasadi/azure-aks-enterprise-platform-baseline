@@ -36,8 +36,8 @@ variable "public_network_access_enabled" {
   default     = true
 }
 
-variable "aks_principal_id" {
-  description = "Principal ID of AKS cluster managed identity (for AcrPull role assignment)"
+variable "aks_kubelet_identity_object_id" {
+  description = "Object ID of AKS kubelet managed identity (for AcrPull role assignment)"
   type        = string
   default     = null
 }

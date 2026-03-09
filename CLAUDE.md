@@ -98,6 +98,57 @@ az acr repository show-tags --name aksplatformdevacr --repository sample-api -o 
 terraform output -raw acr_login_server
 ```
 
+### Application Deployment Operations
+
+```bash
+# Deploy the demo application (all manifests)
+kubectl apply -f app/k8s/
+
+# Or deploy individually in order:
+kubectl apply -f app/k8s/namespace.yaml
+kubectl apply -f app/k8s/serviceaccount.yaml
+kubectl apply -f app/k8s/secretproviderclass.yaml
+kubectl apply -f app/k8s/deployment.yaml
+kubectl apply -f app/k8s/service.yaml
+kubectl apply -f app/k8s/ingress.yaml
+
+# Check deployment status
+kubectl get pods -n demo-app
+kubectl get ingress -n demo-app
+
+# Test the application via ingress
+INGRESS_IP=$(kubectl get ingress -n demo-app sample-api -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+curl -H "Host: demo.aks.internal" http://$INGRESS_IP/health
+curl -H "Host: demo.aks.internal" http://$INGRESS_IP/secret
+
+# View logs
+kubectl logs -n demo-app -l app=sample-api --tail=50
+
+# Verify secret is mounted
+kubectl exec -n demo-app <pod-name> -- ls -la /mnt/secrets/
+kubectl exec -n demo-app <pod-name> -- cat /mnt/secrets/db-connection-string
+```
+
+### Workload Identity Operations
+
+```bash
+# Get workload identity client ID from Terraform
+terraform output -raw demo_app_workload_identity_client_id
+
+# View the managed identity
+az identity show --name aksplatform-dev-demo-app-wi --resource-group aksplatform-dev-rg
+
+# List federated credentials
+az identity federated-credential list \
+  --identity-name aksplatform-dev-demo-app-wi \
+  --resource-group aksplatform-dev-rg
+
+# Verify role assignments
+az role assignment list \
+  --assignee $(terraform output -raw demo_app_workload_identity_client_id) \
+  --all
+```
+
 ## Architecture Overview
 
 ### Infrastructure Layer Structure
@@ -109,7 +160,8 @@ The project uses a modular Terraform architecture with clear separation of conce
   - **[networking/](infra/terraform/modules/networking/)**: VNet, subnets, and Network Security Groups
   - **[monitoring/](infra/terraform/modules/monitoring/)**: Log Analytics, Azure Monitor workspace (Prometheus), and Managed Grafana
   - **[keyvault/](infra/terraform/modules/keyvault/)**: Key Vault with RBAC authorization
-  - **[acr/](infra/terraform/modules/acr/)**: Azure Container Registry with AKS integration (AcrPull role assignment)
+  - **[acr/](infra/terraform/modules/acr/)**: Azure Container Registry with AKS integration (AcrPull role assignment to kubelet identity)
+  - **[workload-identity/](infra/terraform/modules/workload-identity/)**: User Assigned Managed Identity with federated credentials for Workload Identity
 
 - **[infra/terraform/envs/dev/](infra/terraform/envs/dev/)**: Development environment configuration that orchestrates the modules
 
@@ -144,7 +196,8 @@ The project uses a modular Terraform architecture with clear separation of conce
 - **Monitoring** must be created before AKS (Log Analytics workspace dependency)
 - **AKS** depends on both networking and monitoring modules (see [main.tf:91](infra/terraform/envs/dev/main.tf#L91))
 - **Key Vault** can be created independently but requires tenant ID from data source
-- **ACR** depends on AKS (for AcrPull role assignment to AKS managed identity)
+- **ACR** depends on AKS (for AcrPull role assignment to AKS kubelet identity)
+- **Workload Identity** depends on AKS (for OIDC issuer URL) and Key Vault (for role assignment)
 
 ### Adding New Resources
 
@@ -219,26 +272,41 @@ See [infra/terraform/envs/dev/main.tf:33-42](infra/terraform/envs/dev/main.tf#L3
 
 ## Project Status
 
-**Current Status**: Infrastructure Complete - Application Deployment In Progress
+**Current Status**: Phase 3 Complete - Demo Application Deployed
 
-### ✅ Completed Infrastructure
-- Terraform modules for networking, AKS, monitoring, Key Vault, and ACR
+### ✅ Completed Infrastructure (Phase 1-2)
+- Terraform modules for networking, AKS, monitoring, Key Vault, ACR, and **workload-identity**
 - AKS cluster with OIDC issuer and Workload Identity
 - Azure Monitor workspace and Managed Grafana
 - Log Analytics with Container Insights
 - Key Vault with RBAC authorization
-- Azure Container Registry (aksplatformdevacr.azurecr.io) with AKS integration
+- Azure Container Registry with proper kubelet identity integration (bug fixed)
 - NGINX ingress controller verified and tested
 - Prometheus metrics collection validated
 - Grafana integration confirmed
 - Azure Policy active with 16 constraint templates (audit mode)
-- Secrets Store CSI Driver ready for Key Vault integration
-- Comprehensive architecture documentation
+- Secrets Store CSI Driver integrated with Key Vault
 
-### 🔄 Next Steps
-- Demo application deployment with Workload Identity
-- Custom Grafana dashboards
-- CI/CD pipeline automation
+### ✅ Completed Demo Application (Phase 3)
+- Sample API application deployed to AKS
+  - Container image: `aksplatformdevacr.azurecr.io/sample-api:v1.0.0`
+  - Endpoints: `/`, `/health`, `/info`, `/secret`
+- Kubernetes manifests: namespace, serviceaccount, deployment, service, ingress, secretproviderclass
+- Azure Workload Identity fully configured via Terraform
+  - User Assigned Managed Identity: `aksplatform-dev-demo-app-wi`
+  - Federated credential with AKS OIDC
+  - Key Vault Secrets User role automatically assigned
+- Secret retrieval from Key Vault via CSI driver verified
+- Ingress routing working (IP: 20.23.170.231)
+- Zero policy violations
+- All API endpoints tested and operational
+
+### 🔄 Next Steps (Phase 4)
+- Custom Grafana dashboards (Cluster Health, Ingress Metrics, Application Health)
+- Enhanced policy definitions
+- Operations documentation and runbooks
+- Architecture decision records (ADRs)
+- Code cleanup and validation
 
 ### Infrastructure Verification
 
