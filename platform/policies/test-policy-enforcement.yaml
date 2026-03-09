@@ -1,0 +1,168 @@
+---
+# This file contains test cases for Azure Policy enforcement
+# Use these examples to verify policies are working correctly
+
+# ============================================
+# TEST 1: Non-Compliant - Privileged Container
+# ============================================
+# This pod should be DENIED by the "disallow privileged containers" policy
+apiVersion: v1
+kind: Pod
+metadata:
+  name: privileged-pod-test
+  namespace: default
+  labels:
+    app: policy-test
+    environment: dev
+    owner: platform-team
+spec:
+  containers:
+  - name: nginx
+    image: nginx:1.25
+    securityContext:
+      privileged: true  # ❌ This violates policy
+    resources:
+      requests:
+        memory: "64Mi"
+        cpu: "100m"
+      limits:
+        memory: "128Mi"
+        cpu: "200m"
+
+---
+# ============================================
+# TEST 2: Non-Compliant - Host Network
+# ============================================
+# This pod should be DENIED by the "disallow host namespaces" policy
+apiVersion: v1
+kind: Pod
+metadata:
+  name: hostnetwork-pod-test
+  namespace: default
+  labels:
+    app: policy-test
+    environment: dev
+    owner: platform-team
+spec:
+  hostNetwork: true  # ❌ This violates policy
+  containers:
+  - name: nginx
+    image: nginx:1.25
+    resources:
+      requests:
+        memory: "64Mi"
+        cpu: "100m"
+      limits:
+        memory: "128Mi"
+        cpu: "200m"
+
+---
+# ============================================
+# TEST 3: Non-Compliant - Missing Resource Limits
+# ============================================
+# This pod should be DENIED/AUDITED for missing resource limits
+apiVersion: v1
+kind: Pod
+metadata:
+  name: no-limits-pod-test
+  namespace: default
+  labels:
+    app: policy-test
+    environment: dev
+    owner: platform-team
+spec:
+  containers:
+  - name: nginx
+    image: nginx:1.25
+    # ❌ Missing resource requests and limits
+
+---
+# ============================================
+# TEST 4: Non-Compliant - Missing Required Labels
+# ============================================
+# This pod should be AUDITED for missing required labels
+apiVersion: v1
+kind: Pod
+metadata:
+  name: no-labels-pod-test
+  namespace: default
+  # ❌ Missing required labels: app, environment, owner
+spec:
+  containers:
+  - name: nginx
+    image: nginx:1.25
+    resources:
+      requests:
+        memory: "64Mi"
+        cpu: "100m"
+      limits:
+        memory: "128Mi"
+        cpu: "200m"
+
+---
+# ============================================
+# TEST 5: Compliant - Proper Pod Configuration
+# ============================================
+# This pod should be ALLOWED - it follows all best practices
+apiVersion: v1
+kind: Pod
+metadata:
+  name: compliant-pod-test
+  namespace: default
+  labels:
+    app: policy-test
+    environment: dev
+    owner: platform-team
+spec:
+  containers:
+  - name: nginx
+    image: nginx:1.25  # ✅ Pinned version (not :latest)
+    securityContext:
+      privileged: false  # ✅ Not privileged
+      runAsNonRoot: true  # ✅ Run as non-root user
+      runAsUser: 1000
+      allowPrivilegeEscalation: false  # ✅ No privilege escalation
+      capabilities:
+        drop:
+        - ALL  # ✅ Drop all capabilities
+      readOnlyRootFilesystem: true  # ✅ Read-only filesystem
+    resources:
+      requests:
+        memory: "64Mi"
+        cpu: "100m"
+      limits:
+        memory: "128Mi"
+        cpu: "200m"
+    volumeMounts:
+    - name: tmp
+      mountPath: /tmp
+    - name: cache
+      mountPath: /var/cache/nginx
+  volumes:
+  - name: tmp
+    emptyDir: {}
+  - name: cache
+    emptyDir: {}
+
+---
+# ============================================
+# How to Test
+# ============================================
+# 1. Apply individual test cases:
+#    kubectl apply -f platform/policies/test-policy-enforcement.yaml
+#
+# 2. Check if pods are denied:
+#    kubectl get pods -n default | grep policy-test
+#
+# 3. View policy violation messages:
+#    kubectl describe pod privileged-pod-test -n default
+#
+# 4. Clean up:
+#    kubectl delete -f platform/policies/test-policy-enforcement.yaml
+#
+# Expected Results:
+# - privileged-pod-test: DENIED (if policy assigned)
+# - hostnetwork-pod-test: DENIED (if policy assigned)
+# - no-limits-pod-test: DENIED or AUDITED (depending on policy effect)
+# - no-labels-pod-test: AUDITED (warning but allowed)
+# - compliant-pod-test: ALLOWED ✅

@@ -68,4 +68,6 @@ build/
 *.so
 *.dylib
 
+# Internal planning documents (not for public repo)
 plan.md
+docs/*-summary.md
