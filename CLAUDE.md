@@ -78,6 +78,26 @@ az keyvault secret set \
 az keyvault secret list --vault-name aksplatformdevkv
 ```
 
+### Azure Container Registry Operations
+
+```bash
+# Log in to ACR
+az acr login --name aksplatformdevacr
+
+# Build and push an image
+docker build -t aksplatformdevacr.azurecr.io/sample-api:v1.0.0 .
+docker push aksplatformdevacr.azurecr.io/sample-api:v1.0.0
+
+# List images in ACR
+az acr repository list --name aksplatformdevacr -o table
+
+# List tags for a specific image
+az acr repository show-tags --name aksplatformdevacr --repository sample-api -o table
+
+# Get ACR login server
+terraform output -raw acr_login_server
+```
+
 ## Architecture Overview
 
 ### Infrastructure Layer Structure
@@ -89,6 +109,7 @@ The project uses a modular Terraform architecture with clear separation of conce
   - **[networking/](infra/terraform/modules/networking/)**: VNet, subnets, and Network Security Groups
   - **[monitoring/](infra/terraform/modules/monitoring/)**: Log Analytics, Azure Monitor workspace (Prometheus), and Managed Grafana
   - **[keyvault/](infra/terraform/modules/keyvault/)**: Key Vault with RBAC authorization
+  - **[acr/](infra/terraform/modules/acr/)**: Azure Container Registry with AKS integration (AcrPull role assignment)
 
 - **[infra/terraform/envs/dev/](infra/terraform/envs/dev/)**: Development environment configuration that orchestrates the modules
 
@@ -123,6 +144,7 @@ The project uses a modular Terraform architecture with clear separation of conce
 - **Monitoring** must be created before AKS (Log Analytics workspace dependency)
 - **AKS** depends on both networking and monitoring modules (see [main.tf:91](infra/terraform/envs/dev/main.tf#L91))
 - **Key Vault** can be created independently but requires tenant ID from data source
+- **ACR** depends on AKS (for AcrPull role assignment to AKS managed identity)
 
 ### Adding New Resources
 
@@ -191,19 +213,21 @@ Examples:
 - AKS Cluster: `aksplatform-dev-aks`
 - VNet: `aksplatform-dev-vnet`
 - Key Vault: `aksplatformdevkv` (no dashes due to naming restrictions)
+- ACR: `aksplatformdevacr` (no dashes, alphanumeric only)
 
-See [infra/terraform/envs/dev/main.tf:33-40](infra/terraform/envs/dev/main.tf#L33-L40) for naming logic.
+See [infra/terraform/envs/dev/main.tf:33-42](infra/terraform/envs/dev/main.tf#L33-L42) for naming logic.
 
 ## Project Status
 
 **Current Status**: Infrastructure Complete - Application Deployment In Progress
 
 ### ✅ Completed Infrastructure
-- Terraform modules for networking, AKS, monitoring, Key Vault
+- Terraform modules for networking, AKS, monitoring, Key Vault, and ACR
 - AKS cluster with OIDC issuer and Workload Identity
 - Azure Monitor workspace and Managed Grafana
 - Log Analytics with Container Insights
 - Key Vault with RBAC authorization
+- Azure Container Registry (aksplatformdevacr.azurecr.io) with AKS integration
 - NGINX ingress controller verified and tested
 - Prometheus metrics collection validated
 - Grafana integration confirmed
@@ -242,6 +266,7 @@ Default values from [infra/terraform/envs/dev/variables.tf](infra/terraform/envs
 - Kubernetes Version: `1.33`
 - Node Count: `3` (Standard_D2s_v3)
 - Auto-scaling: Disabled by default
+- ACR SKU: `Basic`
 
 Override these in `terraform.tfvars` (create from `terraform.tfvars.example`).
 

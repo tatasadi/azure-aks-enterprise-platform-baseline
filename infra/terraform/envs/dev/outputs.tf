@@ -84,6 +84,22 @@ output "keyvault_id" {
   value       = module.keyvault.keyvault_id
 }
 
+# Azure Container Registry
+output "acr_name" {
+  description = "Name of the Azure Container Registry"
+  value       = module.acr.acr_name
+}
+
+output "acr_login_server" {
+  description = "Login server URL for the Azure Container Registry"
+  value       = module.acr.acr_login_server
+}
+
+output "acr_id" {
+  description = "ID of the Azure Container Registry"
+  value       = module.acr.acr_id
+}
+
 # Instructions
 output "next_steps" {
   description = "Next steps after deployment"
@@ -112,6 +128,12 @@ output "next_steps" {
 
     5. Key Vault URI:
        ${module.keyvault.keyvault_uri}
+
+    6. Azure Container Registry:
+       ${module.acr.acr_login_server}
+
+       Log in to ACR:
+       az acr login --name ${module.acr.acr_name}
 
     ========================================
   EOT

@@ -68,6 +68,9 @@ This project delivers a secure, observable, and reusable AKS platform baseline f
 - **Application Routing Add-on (NGINX)** - Ingress controller
 - **Azure Virtual Network** - Network isolation
 
+### Container Registry
+- **Azure Container Registry (ACR)** - Private container image storage with AKS integration
+
 ## Repository Structure
 
 ```
@@ -78,7 +81,8 @@ azure-aks-enterprise-platform-baseline/
 │   │   ├── aks/           # AKS cluster with OIDC & Workload Identity
 │   │   ├── networking/    # VNet, subnets, NSGs
 │   │   ├── monitoring/    # Prometheus, Grafana, Log Analytics
-│   │   └── keyvault/      # Key Vault with RBAC
+│   │   ├── keyvault/      # Key Vault with RBAC
+│   │   └── acr/           # Azure Container Registry with AKS integration
 │   └── envs/dev/          # Development environment
 ├── platform/               # Platform-level Kubernetes resources
 │   ├── helm-values/       # Helm chart values
@@ -108,14 +112,16 @@ azure-aks-enterprise-platform-baseline/
   - Azure Monitor workspace
   - Managed Grafana instance
   - Key Vault
+  - Azure Container Registry
 
 ### Estimated Monthly Cost
 - **AKS** (3 x Standard_D2s_v3): ~$150-200
 - **Log Analytics**: ~$15-20
 - **Azure Monitor workspace**: ~$10-15
 - **Managed Grafana**: ~$25-30
+- **Azure Container Registry** (Basic): ~$5
 - **Key Vault**: ~$1-5
-- **Total**: ~$200-270/month
+- **Total**: ~$205-275/month
 
 💡 **Tip**: Tear down resources after testing to minimize costs.
 

@@ -37,7 +37,8 @@ locals {
   log_analytics_workspace_name = "${var.project_name}-${var.environment}-law"
   azure_monitor_workspace_name = "${var.project_name}-${var.environment}-amw"
   grafana_name                 = "${var.project_name}-${var.environment}-grafana"
-  keyvault_name                = "${var.project_name}${var.environment}kv" # No dashes, max 24 chars
+  keyvault_name                = "${var.project_name}${var.environment}kv"  # No dashes, max 24 chars
+  acr_name                     = "${var.project_name}${var.environment}acr" # No dashes, alphanumeric only
 }
 
 # Resource Group
@@ -100,6 +101,20 @@ module "keyvault" {
   keyvault_name       = local.keyvault_name
   tenant_id           = data.azurerm_client_config.current.tenant_id
   tags                = var.tags
+}
+
+# Azure Container Registry Module
+module "acr" {
+  source = "../../modules/acr"
+
+  resource_group_name = azurerm_resource_group.rg.name
+  location            = azurerm_resource_group.rg.location
+  acr_name            = local.acr_name
+  sku                 = var.acr_sku
+  aks_principal_id    = module.aks.cluster_identity_principal_id
+  tags                = var.tags
+
+  depends_on = [module.aks]
 }
 
 # Enable Azure Monitor managed Prometheus for AKS

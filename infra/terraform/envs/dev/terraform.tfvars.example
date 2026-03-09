@@ -7,7 +7,7 @@ location     = "germanywestcentral" # Or westeurope, northeurope
 project_name = "aksplatform"
 
 # AKS Configuration
-kubernetes_version = "1.28"
+kubernetes_version = "1.33"
 aks_node_count     = 3
 aks_node_vm_size   = "Standard_D2s_v3"
 

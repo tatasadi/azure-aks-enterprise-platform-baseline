@@ -58,6 +58,12 @@ variable "grafana_admin_user_object_ids" {
   default     = []
 }
 
+variable "acr_sku" {
+  description = "SKU for Azure Container Registry (Basic, Standard, Premium)"
+  type        = string
+  default     = "Basic"
+}
+
 variable "tags" {
   description = "Common tags for all resources"
   type        = map(string)
