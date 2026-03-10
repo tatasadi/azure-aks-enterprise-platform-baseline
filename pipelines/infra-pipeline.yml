@@ -1,5 +1,6 @@
 # Infrastructure Pipeline - Terraform Deployment
 # This pipeline automates the deployment of AKS infrastructure using Terraform
+# Auth model: Azure DevOps Service Connection with Workload Identity Federation (OIDC)
 # Triggers on changes to infrastructure code
 
 name: Infrastructure-$(Date:yyyyMMdd)$(Rev:.r)
@@ -61,13 +62,16 @@ stages:
               scriptLocation: 'inlineScript'
               addSpnToEnvironment: true
               inlineScript: |
+                set -euo pipefail
                 cd $(workingDirectory)
 
-                # Configure Terraform to use Service Principal authentication
-                export ARM_CLIENT_ID=$servicePrincipalId
-                export ARM_CLIENT_SECRET=$servicePrincipalKey
-                export ARM_SUBSCRIPTION_ID=$(az account show --query id -o tsv)
-                export ARM_TENANT_ID=$tenantId
+                # Configure Terraform to use OIDC/Workload Identity Federation
+                export ARM_CLIENT_ID="$servicePrincipalId"
+                export ARM_TENANT_ID="$tenantId"
+                export ARM_SUBSCRIPTION_ID="$(az account show --query id -o tsv)"
+                export ARM_USE_OIDC=true
+                export ARM_OIDC_TOKEN="$idToken"
+                export ARM_OIDC_AZURE_SERVICE_CONNECTION_ID="${AZURESUBSCRIPTION_SERVICE_CONNECTION_ID:-}"
 
                 terraform init \
                   -backend-config="resource_group_name=$(backendResourceGroup)" \
@@ -75,6 +79,8 @@ stages:
                   -backend-config="container_name=$(backendContainer)" \
                   -backend-config="key=$(backendKey)"
               workingDirectory: $(workingDirectory)
+            env:
+              ARM_OIDC_REQUEST_TOKEN: $(System.AccessToken)
 
           - task: Bash@3
             displayName: 'Terraform Format Check'
@@ -119,13 +125,16 @@ stages:
               scriptLocation: 'inlineScript'
               addSpnToEnvironment: true
               inlineScript: |
+                set -euo pipefail
                 cd $(workingDirectory)
 
-                # Configure Terraform to use Service Principal authentication
-                export ARM_CLIENT_ID=$servicePrincipalId
-                export ARM_CLIENT_SECRET=$servicePrincipalKey
-                export ARM_SUBSCRIPTION_ID=$(az account show --query id -o tsv)
-                export ARM_TENANT_ID=$tenantId
+                # Configure Terraform to use OIDC/Workload Identity Federation
+                export ARM_CLIENT_ID="$servicePrincipalId"
+                export ARM_TENANT_ID="$tenantId"
+                export ARM_SUBSCRIPTION_ID="$(az account show --query id -o tsv)"
+                export ARM_USE_OIDC=true
+                export ARM_OIDC_TOKEN="$idToken"
+                export ARM_OIDC_AZURE_SERVICE_CONNECTION_ID="${AZURESUBSCRIPTION_SERVICE_CONNECTION_ID:-}"
 
                 terraform init \
                   -backend-config="resource_group_name=$(backendResourceGroup)" \
@@ -133,6 +142,8 @@ stages:
                   -backend-config="container_name=$(backendContainer)" \
                   -backend-config="key=$(backendKey)"
               workingDirectory: $(workingDirectory)
+            env:
+              ARM_OIDC_REQUEST_TOKEN: $(System.AccessToken)
 
           - task: AzureCLI@2
             displayName: 'Terraform Plan'
@@ -142,13 +153,16 @@ stages:
               scriptLocation: 'inlineScript'
               addSpnToEnvironment: true
               inlineScript: |
+                set -euo pipefail
                 cd $(workingDirectory)
 
-                # Configure Terraform to use Service Principal authentication
-                export ARM_CLIENT_ID=$servicePrincipalId
-                export ARM_CLIENT_SECRET=$servicePrincipalKey
-                export ARM_SUBSCRIPTION_ID=$(az account show --query id -o tsv)
-                export ARM_TENANT_ID=$tenantId
+                # Configure Terraform to use OIDC/Workload Identity Federation
+                export ARM_CLIENT_ID="$servicePrincipalId"
+                export ARM_TENANT_ID="$tenantId"
+                export ARM_SUBSCRIPTION_ID="$(az account show --query id -o tsv)"
+                export ARM_USE_OIDC=true
+                export ARM_OIDC_TOKEN="$idToken"
+                export ARM_OIDC_AZURE_SERVICE_CONNECTION_ID="${AZURESUBSCRIPTION_SERVICE_CONNECTION_ID:-}"
 
                 # Get current user's object ID for Grafana admin access
                 CURRENT_USER_OBJECT_ID=$(az ad signed-in-user show --query id -o tsv)
@@ -166,6 +180,8 @@ stages:
                 echo "##[section]Terraform Plan Summary"
                 cat plan-output.txt
               workingDirectory: $(workingDirectory)
+            env:
+              ARM_OIDC_REQUEST_TOKEN: $(System.AccessToken)
 
           - task: PublishPipelineArtifact@1
             displayName: 'Publish Plan Artifact'
@@ -215,13 +231,16 @@ stages:
                     scriptLocation: 'inlineScript'
                     addSpnToEnvironment: true
                     inlineScript: |
+                      set -euo pipefail
                       cd $(workingDirectory)
 
-                      # Configure Terraform to use Service Principal authentication
-                      export ARM_CLIENT_ID=$servicePrincipalId
-                      export ARM_CLIENT_SECRET=$servicePrincipalKey
-                      export ARM_SUBSCRIPTION_ID=$(az account show --query id -o tsv)
-                      export ARM_TENANT_ID=$tenantId
+                      # Configure Terraform to use OIDC/Workload Identity Federation
+                      export ARM_CLIENT_ID="$servicePrincipalId"
+                      export ARM_TENANT_ID="$tenantId"
+                      export ARM_SUBSCRIPTION_ID="$(az account show --query id -o tsv)"
+                      export ARM_USE_OIDC=true
+                      export ARM_OIDC_TOKEN="$idToken"
+                      export ARM_OIDC_AZURE_SERVICE_CONNECTION_ID="${AZURESUBSCRIPTION_SERVICE_CONNECTION_ID:-}"
 
                       terraform init \
                         -backend-config="resource_group_name=$(backendResourceGroup)" \
@@ -229,6 +248,8 @@ stages:
                         -backend-config="container_name=$(backendContainer)" \
                         -backend-config="key=$(backendKey)"
                     workingDirectory: $(workingDirectory)
+                  env:
+                    ARM_OIDC_REQUEST_TOKEN: $(System.AccessToken)
 
                 - task: AzureCLI@2
                   displayName: 'Terraform Apply'
@@ -238,13 +259,16 @@ stages:
                     scriptLocation: 'inlineScript'
                     addSpnToEnvironment: true
                     inlineScript: |
+                      set -euo pipefail
                       cd $(workingDirectory)
 
-                      # Configure Terraform to use Service Principal authentication
-                      export ARM_CLIENT_ID=$servicePrincipalId
-                      export ARM_CLIENT_SECRET=$servicePrincipalKey
-                      export ARM_SUBSCRIPTION_ID=$(az account show --query id -o tsv)
-                      export ARM_TENANT_ID=$tenantId
+                      # Configure Terraform to use OIDC/Workload Identity Federation
+                      export ARM_CLIENT_ID="$servicePrincipalId"
+                      export ARM_TENANT_ID="$tenantId"
+                      export ARM_SUBSCRIPTION_ID="$(az account show --query id -o tsv)"
+                      export ARM_USE_OIDC=true
+                      export ARM_OIDC_TOKEN="$idToken"
+                      export ARM_OIDC_AZURE_SERVICE_CONNECTION_ID="${AZURESUBSCRIPTION_SERVICE_CONNECTION_ID:-}"
 
                       terraform apply -auto-approve tfplan
 
@@ -252,6 +276,8 @@ stages:
                       echo "##[section]Deployment Outputs"
                       terraform output
                     workingDirectory: $(workingDirectory)
+                  env:
+                    ARM_OIDC_REQUEST_TOKEN: $(System.AccessToken)
 
                 - task: Bash@3
                   displayName: 'Verify AKS Cluster'
