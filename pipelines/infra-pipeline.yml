@@ -38,6 +38,10 @@ variables:
     value: 'tfstate'
   - name: backendKey
     value: 'azure-aks-dev.tfstate'
+  - group: azure-aks-enterprise-platform-baseline
+      # define this variable in the variable group: 
+      # grafanaAdminObjectId
+      # the value is your Entra ID user object ID
 
 pool:
   vmImage: 'ubuntu-latest'
@@ -164,13 +168,12 @@ stages:
                 export ARM_OIDC_TOKEN="$idToken"
                 export ARM_OIDC_AZURE_SERVICE_CONNECTION_ID="${AZURESUBSCRIPTION_SERVICE_CONNECTION_ID:-}"
 
-                # Get current user's object ID for Grafana admin access
-                CURRENT_USER_OBJECT_ID=$(az ad signed-in-user show --query id -o tsv)
-                echo "Current user object ID: $CURRENT_USER_OBJECT_ID"
+                # Use Grafana admin object ID from pipeline variable
+                echo "Using Grafana admin object ID: $(grafanaAdminObjectId)"
 
                 # Run terraform plan
                 terraform plan \
-                  -var="grafana_admin_user_object_ids=[\"$CURRENT_USER_OBJECT_ID\"]" \
+                  -var="grafana_admin_user_object_ids=[\"$(grafanaAdminObjectId)\"]" \
                   -out=tfplan
 
                 # Show the plan
