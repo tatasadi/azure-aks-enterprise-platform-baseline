@@ -280,22 +280,22 @@ Common labels used in queries:
    kubectl get events --all-namespaces --field-selector type=Warning
    ```
 
-### Application Metrics Missing
+### Metrics Collection Configuration
 
-**Note**: Application-specific metrics (like `http_requests_total`) require the application to be instrumented with Prometheus client libraries.
+All required metrics are automatically collected via Azure Monitor managed Prometheus:
 
-**Steps to Add Instrumentation**:
+**Default Metrics** (automatically scraped):
+- Node metrics (node-exporter)
+- Kubernetes state metrics (kube-state-metrics)
+- Container metrics (cAdvisor)
+- Kubelet metrics
 
-1. Add Prometheus client library to your application
-2. Expose `/metrics` endpoint
-3. Add Prometheus scrape annotations to pod:
-   ```yaml
-   metadata:
-     annotations:
-       prometheus.io/scrape: "true"
-       prometheus.io/port: "8080"
-       prometheus.io/path: "/metrics"
-   ```
+**Custom Metrics** (configured via ServiceMonitor/PodMonitor):
+- NGINX Ingress Controller → [platform/manifests/nginx-servicemonitor.yaml](../platform/manifests/nginx-servicemonitor.yaml)
+- Sample API application → [app/k8s/podmonitor.yaml](../app/k8s/podmonitor.yaml)
+
+**Application Metrics Requirements**:
+Applications must expose Prometheus metrics at `/metrics` endpoint and have a PodMonitor configured. See [app/sample-api/](../app/sample-api/) for a reference implementation using `prometheus-client` Python library.
 
 ### Panels Show "Error" or "Bad Gateway"
 
@@ -350,4 +350,4 @@ To modify dashboards:
 
 ---
 
-**Last Updated**: 2026-03-09
+**Last Updated**: 2026-03-10

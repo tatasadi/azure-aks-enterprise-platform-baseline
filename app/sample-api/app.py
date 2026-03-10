@@ -5,15 +5,84 @@ Demonstrates Workload Identity and Key Vault integration
 
 import os
 import socket
+import time
 from datetime import datetime
-from flask import Flask, jsonify
+from flask import Flask, jsonify, request
 from pathlib import Path
+from prometheus_client import Counter, Histogram, Gauge, generate_latest, CONTENT_TYPE_LATEST
 
 app = Flask(__name__)
+
+# Prometheus metrics
+REQUEST_COUNT = Counter(
+    'http_requests_total',
+    'Total HTTP requests',
+    ['method', 'endpoint', 'status']
+)
+
+REQUEST_DURATION = Histogram(
+    'http_request_duration_seconds',
+    'HTTP request duration in seconds',
+    ['method', 'endpoint']
+)
+
+REQUEST_IN_PROGRESS = Gauge(
+    'http_requests_in_progress',
+    'HTTP requests currently in progress',
+    ['method', 'endpoint']
+)
 
 # Configuration
 VERSION = os.getenv('APP_VERSION', 'v1.0.0')
 SECRET_PATH = os.getenv('SECRET_PATH', '/mnt/secrets')
+
+
+# Prometheus hooks
+@app.before_request
+def before_request():
+    """Track request start time and increment in-progress gauge"""
+    request.start_time = time.time()
+    REQUEST_IN_PROGRESS.labels(
+        method=request.method,
+        endpoint=request.path
+    ).inc()
+
+
+@app.after_request
+def after_request(response):
+    """Track request completion, duration, and decrement in-progress gauge"""
+    if hasattr(request, 'start_time'):
+        # Calculate request duration
+        duration = time.time() - request.start_time
+
+        # Record metrics
+        REQUEST_DURATION.labels(
+            method=request.method,
+            endpoint=request.path
+        ).observe(duration)
+
+        REQUEST_COUNT.labels(
+            method=request.method,
+            endpoint=request.path,
+            status=response.status_code
+        ).inc()
+
+        # Decrement in-progress gauge
+        REQUEST_IN_PROGRESS.labels(
+            method=request.method,
+            endpoint=request.path
+        ).dec()
+
+    return response
+
+
+@app.route('/metrics', methods=['GET'])
+def metrics():
+    """
+    Prometheus metrics endpoint
+    Returns metrics in Prometheus exposition format
+    """
+    return generate_latest(), 200, {'Content-Type': CONTENT_TYPE_LATEST}
 
 
 @app.route('/health', methods=['GET'])
@@ -123,13 +192,15 @@ def root():
             '/': 'This endpoint - API information',
             '/health': 'Health check endpoint',
             '/info': 'Pod and environment information',
-            '/secret': 'Read secrets from Azure Key Vault via CSI driver'
+            '/secret': 'Read secrets from Azure Key Vault via CSI driver',
+            '/metrics': 'Prometheus metrics endpoint'
         },
         'features': [
             'Azure Workload Identity integration',
             'Azure Key Vault CSI Driver',
             'Kubernetes metadata exposure',
-            'Health checks for liveness/readiness probes'
+            'Health checks for liveness/readiness probes',
+            'Prometheus metrics instrumentation'
         ]
     }), 200
 

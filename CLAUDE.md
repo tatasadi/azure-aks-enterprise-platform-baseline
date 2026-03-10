@@ -84,9 +84,9 @@ az keyvault secret list --vault-name aksplatformdevkv
 # Log in to ACR
 az acr login --name aksplatformdevacr
 
-# Build and push an image
-docker build -t aksplatformdevacr.azurecr.io/sample-api:v1.0.0 .
-docker push aksplatformdevacr.azurecr.io/sample-api:v1.0.0
+# Build and push an image (NOTE: Build for AMD64 on M1/M2 Macs)
+docker build --platform linux/amd64 -t aksplatformdevacr.azurecr.io/sample-api:v1.1.0-amd64 app/sample-api/
+docker push aksplatformdevacr.azurecr.io/sample-api:v1.1.0-amd64
 
 # List images in ACR
 az acr repository list --name aksplatformdevacr -o table
@@ -101,7 +101,7 @@ terraform output -raw acr_login_server
 ### Application Deployment Operations
 
 ```bash
-# Deploy the demo application (all manifests)
+# Deploy the demo application (all manifests including PodMonitor)
 kubectl apply -f app/k8s/
 
 # Or deploy individually in order:
@@ -111,15 +111,18 @@ kubectl apply -f app/k8s/secretproviderclass.yaml
 kubectl apply -f app/k8s/deployment.yaml
 kubectl apply -f app/k8s/service.yaml
 kubectl apply -f app/k8s/ingress.yaml
+kubectl apply -f app/k8s/podmonitor.yaml  # For Prometheus metrics scraping
 
 # Check deployment status
 kubectl get pods -n demo-app
 kubectl get ingress -n demo-app
+kubectl get podmonitor -n demo-app
 
 # Test the application via ingress
 INGRESS_IP=$(kubectl get ingress -n demo-app sample-api -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
 curl -H "Host: demo.aks.internal" http://$INGRESS_IP/health
 curl -H "Host: demo.aks.internal" http://$INGRESS_IP/secret
+curl -H "Host: demo.aks.internal" http://$INGRESS_IP/metrics  # Prometheus metrics
 
 # View logs
 kubectl logs -n demo-app -l app=sample-api --tail=50
@@ -147,6 +150,32 @@ az identity federated-credential list \
 az role assignment list \
   --assignee $(terraform output -raw demo_app_workload_identity_client_id) \
   --all
+```
+
+### Observability & Monitoring Operations
+
+```bash
+# View Grafana dashboards
+terraform output -raw grafana_endpoint
+
+# Check Azure Monitor metrics collection
+kubectl get pods -n kube-system | grep ama-metrics
+
+# Verify NGINX metrics are being scraped
+kubectl get servicemonitor -n app-routing-system
+
+# Verify application metrics are being scraped
+kubectl get podmonitor -n demo-app
+
+# Test application metrics endpoint
+kubectl port-forward -n demo-app service/sample-api 8080:80
+curl http://localhost:8080/metrics | grep http_requests_total
+
+# Generate test traffic for dashboards
+./scripts/load-test/quick-load-test.sh
+
+# Check Azure Monitor operator logs
+kubectl logs -n kube-system -l app.kubernetes.io/component=target-allocator --tail=50
 ```
 
 ## Architecture Overview
@@ -272,41 +301,43 @@ See [infra/terraform/envs/dev/main.tf:33-42](infra/terraform/envs/dev/main.tf#L3
 
 ## Project Status
 
-**Current Status**: Phase 3 Complete - Demo Application Deployed
+**Current Status**: ✅ Complete - Production-Ready AKS Platform
 
 ### ✅ Completed Infrastructure (Phase 1-2)
-- Terraform modules for networking, AKS, monitoring, Key Vault, ACR, and **workload-identity**
+- Terraform modules for networking, AKS, monitoring, Key Vault, ACR, and workload-identity
 - AKS cluster with OIDC issuer and Workload Identity
 - Azure Monitor workspace and Managed Grafana
 - Log Analytics with Container Insights
 - Key Vault with RBAC authorization
-- Azure Container Registry with proper kubelet identity integration (bug fixed)
-- NGINX ingress controller verified and tested
-- Prometheus metrics collection validated
-- Grafana integration confirmed
+- Azure Container Registry with AKS kubelet identity integration
+- NGINX ingress controller (Web App Routing addon)
 - Azure Policy active with 16 constraint templates (audit mode)
 - Secrets Store CSI Driver integrated with Key Vault
 
 ### ✅ Completed Demo Application (Phase 3)
 - Sample API application deployed to AKS
-  - Container image: `aksplatformdevacr.azurecr.io/sample-api:v1.0.0`
-  - Endpoints: `/`, `/health`, `/info`, `/secret`
-- Kubernetes manifests: namespace, serviceaccount, deployment, service, ingress, secretproviderclass
+  - Container image: `aksplatformdevacr.azurecr.io/sample-api:v1.1.0-amd64`
+  - Endpoints: `/`, `/health`, `/info`, `/secret`, `/metrics`
+  - **Prometheus metrics instrumentation** (http_requests_total, http_request_duration_seconds)
+- Kubernetes manifests: namespace, serviceaccount, deployment, service, ingress, secretproviderclass, podmonitor
 - Azure Workload Identity fully configured via Terraform
   - User Assigned Managed Identity: `aksplatform-dev-demo-app-wi`
   - Federated credential with AKS OIDC
   - Key Vault Secrets User role automatically assigned
 - Secret retrieval from Key Vault via CSI driver verified
-- Ingress routing working (IP: 20.23.170.231)
+- Ingress routing working
 - Zero policy violations
-- All API endpoints tested and operational
 
-### 🔄 Next Steps (Phase 4)
-- Custom Grafana dashboards (Cluster Health, Ingress Metrics, Application Health)
-- Enhanced policy definitions
-- Operations documentation and runbooks
-- Architecture decision records (ADRs)
-- Code cleanup and validation
+### ✅ Completed Observability (Phase 4)
+- **Custom Grafana dashboards** deployed and operational:
+  - Cluster Health Overview (node/cluster metrics)
+  - NGINX Ingress Metrics (request rates, latency, errors)
+  - Application Health (pod status, application metrics)
+- **Prometheus metrics collection**:
+  - NGINX Ingress Controller (ServiceMonitor)
+  - Sample API application (PodMonitor)
+  - Default targets (kubelet, cadvisor, kube-state-metrics, node-exporter)
+- Load testing scripts for dashboard validation
 
 ### Infrastructure Verification
 
@@ -340,11 +371,25 @@ Override these in `terraform.tfvars` (create from `terraform.tfvars.example`).
 
 ## Important Files
 
+### Documentation
 - **[README.md](README.md)**: Project overview, getting started guide, architecture
 - **[docs/architecture.md](docs/architecture.md)**: Comprehensive architecture documentation with data flows
+- **[docs/operations.md](docs/operations.md)**: Operational runbooks and procedures
+- **[docs/dashboards.md](docs/dashboards.md)**: Grafana dashboards documentation
+- **[docs/decisions.md](docs/decisions.md)**: Architecture Decision Records
+
+### Platform Configuration
 - **[platform/policies/README.md](platform/policies/README.md)**: Azure Policy documentation
-- **[platform/manifests/example-secretproviderclass.yaml](platform/manifests/example-secretproviderclass.yaml)**: CSI driver example
+- **[platform/manifests/nginx-servicemonitor.yaml](platform/manifests/nginx-servicemonitor.yaml)**: NGINX metrics scraping configuration
+- **[platform/manifests/grafana-dashboards/](platform/manifests/grafana-dashboards/)**: Custom Grafana dashboard definitions
+
+### Application Resources
+- **[app/sample-api/](app/sample-api/)**: Demo Python Flask API with Prometheus instrumentation
+- **[app/k8s/](app/k8s/)**: Kubernetes manifests including PodMonitor for metrics
+
+### Scripts
 - **[scripts/verify-platform.sh](scripts/verify-platform.sh)**: Automated platform verification script
-- **[docs/decisions.md](docs/decisions.md)**: Architecture Decision Records (coming soon)
-- **[docs/operations.md](docs/operations.md)**: Operational runbooks (coming soon)
+- **[scripts/load-test/](scripts/load-test/)**: Load testing scripts for dashboard validation
+
+### Configuration
 - **[.gitignore](.gitignore)**: Ensures secrets and state files are not committed
