@@ -69,7 +69,7 @@ metadata:
 
 ```
 ┌──────────────────────────────────────────────────────────┐
-│                    Azure AD                              │
+│                    Entra ID                              │
 │  ┌────────────────────────────────────────────────────┐  │
 │  │  User Assigned Managed Identity                    │  │
 │  │  - Client ID: <output>                             │  │
@@ -85,7 +85,7 @@ metadata:
 │  ┌────────────────────────────────────────────────────┐  │
 │  │  Pod with ServiceAccount                           │  │
 │  │  - Uses projected service account token            │  │
-│  │  - Exchanges token for Azure AD token via OIDC     │  │
+│  │  - Exchanges token for Entra ID token via OIDC     │  │
 │  │  - Accesses Key Vault, Storage, etc.               │  │
 │  └────────────────────────────────────────────────────┘  │
 └──────────────────────────────────────────────────────────┘

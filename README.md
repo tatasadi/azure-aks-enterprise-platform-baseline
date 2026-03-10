@@ -143,7 +143,7 @@ az login
 # Set your subscription
 az account set --subscription "Your Subscription Name"
 
-# Get your Azure AD object ID for Grafana admin access
+# Get your Entra ID object ID for Grafana admin access
 az ad signed-in-user show --query id -o tsv
 ```
 
@@ -156,7 +156,7 @@ cd infra/terraform/envs/dev
 cp terraform.tfvars.example terraform.tfvars
 
 # Edit terraform.tfvars with your values
-# - Add your Azure AD object ID to grafana_admin_user_object_ids
+# - Add your Entra ID object ID to grafana_admin_user_object_ids
 # - Adjust location, project name, and other settings as needed
 ```
 
@@ -196,7 +196,7 @@ The Grafana endpoint URL is output after Terraform deployment:
 terraform output grafana_endpoint
 ```
 
-Access Grafana using your Azure AD credentials (you must be in the `grafana_admin_user_object_ids` list).
+Access Grafana using your Entra ID credentials (you must be in the `grafana_admin_user_object_ids` list).
 
 ## Current Implementation Status
 
@@ -221,7 +221,7 @@ Access Grafana using your Azure AD credentials (you must be in the `grafana_admi
 
 ### Security
 ✅ **Workload Identity**: Secretless authentication using OIDC federation
-✅ **RBAC Authorization**: Azure AD integration for Kubernetes and Key Vault
+✅ **RBAC Authorization**: Entra ID integration for Kubernetes and Key Vault
 ✅ **Network Isolation**: VNet integration with network policies
 ✅ **Policy Enforcement**: Azure Policy add-on for compliance guardrails
 ✅ **Secrets Management**: CSI driver for mounting Key Vault secrets

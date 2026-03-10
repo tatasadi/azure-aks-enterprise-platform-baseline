@@ -14,7 +14,7 @@ variable "keyvault_name" {
 }
 
 variable "tenant_id" {
-  description = "Azure AD tenant ID"
+  description = "Entra ID tenant ID"
   type        = string
 }
 

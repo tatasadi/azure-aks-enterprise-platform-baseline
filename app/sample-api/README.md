@@ -93,7 +93,7 @@ See [../k8s/README.md](../k8s/README.md) for Kubernetes manifest deployment inst
 ## Architecture
 
 This application demonstrates:
-1. **Azure Workload Identity**: Pod authenticates to Azure AD using OIDC
+1. **Azure Workload Identity**: Pod authenticates to Entra ID using OIDC
 2. **CSI Driver Integration**: Secrets mounted from Key Vault as files
 3. **Kubernetes Best Practices**: Health probes, resource limits, labels
 4. **12-Factor App Principles**: Configuration via environment, stateless design

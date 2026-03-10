@@ -61,7 +61,7 @@ az aks show \
 # Get Grafana endpoint URL
 terraform output -raw grafana_endpoint
 
-# Get your Azure AD object ID (needed for Grafana admin access)
+# Get your Entra ID object ID (needed for Grafana admin access)
 az ad signed-in-user show --query id -o tsv
 ```
 
@@ -176,9 +176,9 @@ The project uses a modular Terraform architecture with clear separation of conce
 ### Data Flow: Secrets Retrieval
 
 1. Pod uses ServiceAccount with Workload Identity annotation (`azure.workload.identity/client-id`)
-2. AKS exchanges pod token for Azure AD token via OIDC issuer
-3. Azure AD validates federated credential (service account subject matches)
-4. CSI driver mounts secrets from Key Vault using the Azure AD token
+2. AKS exchanges pod token for Entra ID token via OIDC issuer
+3. Entra ID validates federated credential (service account subject matches)
+4. CSI driver mounts secrets from Key Vault using the Entra ID token
 5. Secrets appear as files in pod filesystem
 
 ### Monitoring Integration

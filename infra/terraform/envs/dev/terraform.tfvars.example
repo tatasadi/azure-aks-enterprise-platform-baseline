@@ -17,7 +17,7 @@ min_node_count      = 3
 max_node_count      = 5
 
 # Grafana Admin Users
-# Add your Azure AD object ID to get admin access to Grafana
+# Add your Entra ID object ID to get admin access to Grafana
 # Find your object ID: az ad signed-in-user show --query id -o tsv
 grafana_admin_user_object_ids = [
   # "12345678-1234-1234-1234-123456789012"

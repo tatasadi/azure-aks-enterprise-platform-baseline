@@ -42,7 +42,7 @@ variable "grafana_sku" {
 }
 
 variable "grafana_admin_user_object_ids" {
-  description = "List of Azure AD object IDs for Grafana admin users"
+  description = "List of Entra ID object IDs for Grafana admin users"
   type        = list(string)
   default     = []
 }

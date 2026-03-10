@@ -132,7 +132,7 @@ output "next_steps" {
 
     3. Access Grafana:
        URL: ${module.monitoring.grafana_endpoint}
-       (Use Azure AD authentication)
+       (Use Entra ID authentication)
 
     4. OIDC Issuer URL (for Workload Identity):
        ${module.aks.oidc_issuer_url}

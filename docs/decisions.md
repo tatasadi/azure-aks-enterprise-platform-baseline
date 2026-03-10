@@ -10,10 +10,10 @@ This document captures key architectural decisions made during the development o
 We need a secure method for Kubernetes workloads to authenticate to Azure services (particularly Key Vault) without managing static credentials.
 
 **Decision**:
-Implement Azure Workload Identity using OIDC federation instead of the deprecated Azure AD Pod Identity.
+Implement Azure Workload Identity using OIDC federation instead of the deprecated Entra ID Pod Identity.
 
 **Rationale**:
-- Workload Identity is the Microsoft-recommended approach as of 2024
+- Workload Identity is the Microsoft-recommended approach as of now
 - Uses standard OIDC federation (no custom admission webhooks)
 - Better security model with federated credentials
 - Pod Identity is deprecated and will be removed
@@ -117,7 +117,7 @@ Enable RBAC authorization model for Key Vault instead of access policies.
 
 **Rationale**:
 - Modern Azure authorization model
-- Consistent with Azure AD RBAC patterns
+- Consistent with Entra ID RBAC patterns
 - Granular role assignments (Key Vault Secrets User, etc.)
 - Better audit trail via Azure Activity Log
 - Supports managed identities and Workload Identity seamlessly
@@ -131,17 +131,141 @@ Enable RBAC authorization model for Key Vault instead of access policies.
 
 ---
 
+---
+
+## ADR-006: Use Azure Managed Grafana over Self-Hosted Grafana
+
+**Status**: Accepted
+
+**Context**:
+We need a visualization and dashboarding solution for observability metrics collected by Prometheus.
+
+**Decision**:
+Use Azure Managed Grafana instead of self-hosting Grafana in the AKS cluster.
+
+**Rationale**:
+- Fully managed service with automatic updates and patching
+- High availability built-in (no need to manage replicas)
+- Native integration with Azure Monitor workspace (Prometheus)
+- Entra ID authentication out-of-the-box
+- RBAC via Azure role assignments (Grafana Admin, Grafana Editor, Grafana Viewer)
+- Reduces operational burden on platform team
+- Cost-effective compared to running dedicated infrastructure
+
+**Consequences**:
+- Grafana instance runs outside the cluster (external dependency)
+- Limited control over Grafana version and plugins
+- Data sources must be accessible from Azure Managed Grafana
+- Dashboard provisioning requires manual import or API calls
+- Regional availability constraints
+
+**Alternatives Considered**:
+- Self-hosted Grafana in AKS: More control but higher operational overhead
+- Azure Monitor Workbooks: Azure-native but less powerful than Grafana for Prometheus metrics
+
+---
+
+## ADR-007: Dashboard as Code via JSON Export
+
+**Status**: Accepted
+
+**Context**:
+Custom Grafana dashboards need to be version-controlled and reproducible across environments.
+
+**Decision**:
+Store dashboard JSON files in Git at [`platform/manifests/grafana-dashboards/`](../platform/manifests/grafana-dashboards/) and import them manually or via API.
+
+**Rationale**:
+- Version control for dashboards (track changes over time)
+- Reproducible dashboard deployments
+- Easy sharing across teams and environments
+- Simple export/import workflow
+- No additional tooling required
+
+**Consequences**:
+- Dashboards must be manually imported into Grafana (one-time setup)
+- Updates require re-export and Git commit
+- Not fully automated (no GitOps for dashboards)
+- Risk of drift between Git and live dashboards
+
+**Alternatives Considered**:
+- Grafana Provisioning: Requires mounting ConfigMaps in managed Grafana (not supported)
+- Terraform Grafana Provider: Adds complexity, requires API credentials
+- GitOps (ArgoCD/Flux): Overkill for dashboards
+
+---
+
+## ADR-008: Audit-First Policy Enforcement
+
+**Status**: Accepted
+
+**Context**:
+Azure Policy can enforce security and operational guardrails, but overly restrictive policies can block legitimate workloads.
+
+**Decision**:
+Start with `audit` mode for all policies in development environment, then progressively move to `deny` mode for high-priority policies in staging/production.
+
+**Rationale**:
+- Reduces risk of blocking legitimate workloads during initial rollout
+- Provides visibility into compliance gaps without disruption
+- Allows teams to learn policy requirements gradually
+- Enables iterative refinement of policies and exceptions
+- Follows principle of "educate before enforce"
+
+**Consequences**:
+- Non-compliant resources can be created in audit mode
+- Requires manual review of compliance reports
+- Teams may delay fixing policy violations
+- Transition to deny mode requires change management
+
+**Policy Enforcement Strategy**:
+- **Dev**: Audit mode for all policies (education)
+- **Staging**: Deny mode for high-priority policies (testing)
+- **Production**: Deny mode for high-priority, audit for medium-priority
+
+---
+
+## ADR-009: Operations Documentation in Markdown
+
+**Status**: Accepted
+
+**Context**:
+Platform operations require documented procedures for common tasks, troubleshooting, and maintenance.
+
+**Decision**:
+Maintain operational documentation in Markdown format within the Git repository at [`docs/operations.md`](../docs/operations.md).
+
+**Rationale**:
+- Version-controlled alongside code
+- Easy to search and update
+- Supports code blocks and examples
+- Accessible via GitHub/IDE without special tools
+- Can be rendered in internal wikis or documentation sites
+- Encourages documentation-as-code practices
+
+**Consequences**:
+- Not a dedicated knowledge base (no search, no structured data)
+- Requires discipline to keep docs up-to-date
+- No built-in access control (docs are public with code)
+- Formatting limited to Markdown capabilities
+
+**Alternatives Considered**:
+- Confluence/Wiki: Separate from code, harder to keep in sync
+- README-driven: Too fragmented across multiple files
+- Runbook automation tools: Overkill for baseline platform
+
+---
+
 ## Future ADRs
 
 The following decisions will be documented in subsequent phases:
 
-- **ADR-006**: Ingress TLS certificate management strategy
-- **ADR-007**: Multi-environment promotion strategy
-- **ADR-008**: Namespace isolation and multi-tenancy model
-- **ADR-009**: Backup and disaster recovery approach
-- **ADR-010**: Autoscaling strategy (HPA, VPA, Cluster Autoscaler)
+- **ADR-010**: Ingress TLS certificate management strategy
+- **ADR-011**: Multi-environment promotion strategy
+- **ADR-012**: Namespace isolation and multi-tenancy model
+- **ADR-013**: Backup and disaster recovery approach
+- **ADR-014**: Autoscaling strategy (HPA, VPA, Cluster Autoscaler)
 
 ---
 
-**Last Updated**: 2026-03-06
-**Phase**: Phase 1 - Core Infrastructure
+**Last Updated**: 2026-03-09
