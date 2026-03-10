@@ -46,7 +46,7 @@ Two pipelines work together to provide complete automation:
 Automates Terraform deployment of AKS infrastructure including networking, monitoring, Key Vault, and ACR.
 
 ### Triggers
-- **Branch**: `main`, `develop`
+- **Branch**: `main`, `dev`
 - **Path filters**: `infra/terraform/**`
 
 ### Stages
@@ -118,7 +118,7 @@ Automates Terraform deployment of AKS infrastructure including networking, monit
 Builds container images, scans for vulnerabilities, and deploys applications to AKS.
 
 ### Triggers
-- **Branch**: `main`, `develop`
+- **Branch**: `main`, `dev`
 - **Path filters**: `app/**`
 
 ### Stages
@@ -164,14 +164,21 @@ Builds container images, scans for vulnerabilities, and deploys applications to 
    ```bash
    # Get ACR credentials
    az acr credential show --name aksplatformdevacr
+
+   # Or extract specific values:
+   # Username
+   az acr credential show --name aksplatformdevacr --query "username" -o tsv
+
+   # Password (password1)
+   az acr credential show --name aksplatformdevacr --query "passwords[0].value" -o tsv
    ```
 
    - Project Settings → Service connections → New service connection
    - Choose "Docker Registry"
    - Registry type: "Others"
    - Docker Registry: `https://aksplatformdevacr.azurecr.io`
-   - Docker ID: (from command above)
-   - Docker Password: (from command above)
+   - Docker ID: `aksplatformdevacr` (or use the username from command above)
+   - Docker Password: (use password from command above)
    - Service connection name: `acr-connection`
 
    **Note**: For production, use managed identities instead of admin credentials.
