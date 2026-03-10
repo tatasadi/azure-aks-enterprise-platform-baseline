@@ -282,12 +282,24 @@ stages:
                   env:
                     ARM_OIDC_REQUEST_TOKEN: $(System.AccessToken)
 
-                - task: Bash@3
+                - task: AzureCLI@2
                   displayName: 'Verify AKS Cluster'
                   inputs:
-                    targetType: 'inline'
-                    script: |
+                    azureSubscription: $(azureServiceConnection)
+                    scriptType: 'bash'
+                    scriptLocation: 'inlineScript'
+                    addSpnToEnvironment: true
+                    inlineScript: |
+                      set -euo pipefail
                       cd $(workingDirectory)
+
+                      # Configure Terraform to use OIDC/Workload Identity Federation
+                      export ARM_CLIENT_ID="$servicePrincipalId"
+                      export ARM_TENANT_ID="$tenantId"
+                      export ARM_SUBSCRIPTION_ID="$(az account show --query id -o tsv)"
+                      export ARM_USE_OIDC=true
+                      export ARM_OIDC_TOKEN="$idToken"
+                      export ARM_OIDC_AZURE_SERVICE_CONNECTION_ID="${AZURESUBSCRIPTION_SERVICE_CONNECTION_ID:-}"
 
                       # Get cluster name and resource group
                       CLUSTER_NAME=$(terraform output -raw aks_cluster_name)
@@ -304,3 +316,5 @@ stages:
 
                       echo "##[section]AKS cluster verification completed successfully"
                     workingDirectory: $(workingDirectory)
+                  env:
+                    ARM_OIDC_REQUEST_TOKEN: $(System.AccessToken)
