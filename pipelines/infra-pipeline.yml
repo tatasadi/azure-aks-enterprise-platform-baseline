@@ -1,0 +1,238 @@
+# Infrastructure Pipeline - Terraform Deployment
+# This pipeline automates the deployment of AKS infrastructure using Terraform
+# Triggers on changes to infrastructure code
+
+name: Infrastructure-$(Date:yyyyMMdd)$(Rev:.r)
+
+trigger:
+  branches:
+    include:
+      - main
+      - dev
+  paths:
+    include:
+      - infra/terraform/**
+      - pipelines/infra-pipeline.yml
+
+pr:
+  branches:
+    include:
+      - main
+  paths:
+    include:
+      - infra/terraform/**
+
+variables:
+  - name: terraformVersion
+    value: '1.5.7'
+  - name: workingDirectory
+    value: '$(System.DefaultWorkingDirectory)/infra/terraform/envs/dev'
+  - name: azureServiceConnection
+    value: 'azure-aks-platform-sp'  # Update with your service connection name
+  - name: backendResourceGroup
+    value: 'rg-terraform'
+  - name: backendStorageAccount
+    value: 'sttfstateta'
+  - name: backendContainer
+    value: 'tfstate'
+  - name: backendKey
+    value: 'azure-aks-dev.tfstate'
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+stages:
+  - stage: Validate
+    displayName: 'Validate Terraform'
+    jobs:
+      - job: ValidateTerraform
+        displayName: 'Terraform Validate & Format Check'
+        steps:
+          - task: TerraformInstaller@1
+            displayName: 'Install Terraform'
+            inputs:
+              terraformVersion: $(terraformVersion)
+
+          - task: AzureCLI@2
+            displayName: 'Terraform Init'
+            inputs:
+              azureSubscription: $(azureServiceConnection)
+              scriptType: 'bash'
+              scriptLocation: 'inlineScript'
+              inlineScript: |
+                cd $(workingDirectory)
+                terraform init \
+                  -backend-config="resource_group_name=$(backendResourceGroup)" \
+                  -backend-config="storage_account_name=$(backendStorageAccount)" \
+                  -backend-config="container_name=$(backendContainer)" \
+                  -backend-config="key=$(backendKey)"
+              workingDirectory: $(workingDirectory)
+
+          - task: Bash@3
+            displayName: 'Terraform Format Check'
+            inputs:
+              targetType: 'inline'
+              script: |
+                cd $(System.DefaultWorkingDirectory)/infra/terraform
+                terraform fmt -check -recursive
+                if [ $? -ne 0 ]; then
+                  echo "##[error]Terraform files are not properly formatted. Run 'terraform fmt -recursive' locally."
+                  exit 1
+                fi
+              workingDirectory: $(System.DefaultWorkingDirectory)
+
+          - task: Bash@3
+            displayName: 'Terraform Validate'
+            inputs:
+              targetType: 'inline'
+              script: |
+                cd $(workingDirectory)
+                terraform validate
+              workingDirectory: $(workingDirectory)
+
+  - stage: Plan
+    displayName: 'Terraform Plan'
+    dependsOn: Validate
+    condition: succeeded()
+    jobs:
+      - job: TerraformPlan
+        displayName: 'Generate Terraform Plan'
+        steps:
+          - task: TerraformInstaller@1
+            displayName: 'Install Terraform'
+            inputs:
+              terraformVersion: $(terraformVersion)
+
+          - task: AzureCLI@2
+            displayName: 'Terraform Init'
+            inputs:
+              azureSubscription: $(azureServiceConnection)
+              scriptType: 'bash'
+              scriptLocation: 'inlineScript'
+              inlineScript: |
+                cd $(workingDirectory)
+                terraform init \
+                  -backend-config="resource_group_name=$(backendResourceGroup)" \
+                  -backend-config="storage_account_name=$(backendStorageAccount)" \
+                  -backend-config="container_name=$(backendContainer)" \
+                  -backend-config="key=$(backendKey)"
+              workingDirectory: $(workingDirectory)
+
+          - task: AzureCLI@2
+            displayName: 'Terraform Plan'
+            inputs:
+              azureSubscription: $(azureServiceConnection)
+              scriptType: 'bash'
+              scriptLocation: 'inlineScript'
+              inlineScript: |
+                cd $(workingDirectory)
+
+                # Get current user's object ID for Grafana admin access
+                CURRENT_USER_OBJECT_ID=$(az ad signed-in-user show --query id -o tsv)
+                echo "Current user object ID: $CURRENT_USER_OBJECT_ID"
+
+                # Run terraform plan
+                terraform plan \
+                  -var="grafana_admin_user_object_ids=[\"$CURRENT_USER_OBJECT_ID\"]" \
+                  -out=tfplan
+
+                # Show the plan
+                terraform show -no-color tfplan > plan-output.txt
+
+                # Display summary
+                echo "##[section]Terraform Plan Summary"
+                cat plan-output.txt
+              workingDirectory: $(workingDirectory)
+
+          - task: PublishPipelineArtifact@1
+            displayName: 'Publish Plan Artifact'
+            inputs:
+              targetPath: '$(workingDirectory)/tfplan'
+              artifact: 'terraform-plan'
+              publishLocation: 'pipeline'
+
+          - task: PublishPipelineArtifact@1
+            displayName: 'Publish Plan Output'
+            inputs:
+              targetPath: '$(workingDirectory)/plan-output.txt'
+              artifact: 'plan-output'
+              publishLocation: 'pipeline'
+
+  - stage: Apply
+    displayName: 'Terraform Apply'
+    dependsOn: Plan
+    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+    jobs:
+      - deployment: TerraformApply
+        displayName: 'Apply Terraform Changes'
+        environment: 'aks-platform-dev'  # Creates approval gate in Azure DevOps
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - checkout: self
+
+                - task: TerraformInstaller@1
+                  displayName: 'Install Terraform'
+                  inputs:
+                    terraformVersion: $(terraformVersion)
+
+                - task: DownloadPipelineArtifact@2
+                  displayName: 'Download Terraform Plan'
+                  inputs:
+                    buildType: 'current'
+                    artifactName: 'terraform-plan'
+                    targetPath: '$(workingDirectory)'
+
+                - task: AzureCLI@2
+                  displayName: 'Terraform Init'
+                  inputs:
+                    azureSubscription: $(azureServiceConnection)
+                    scriptType: 'bash'
+                    scriptLocation: 'inlineScript'
+                    inlineScript: |
+                      cd $(workingDirectory)
+                      terraform init \
+                        -backend-config="resource_group_name=$(backendResourceGroup)" \
+                        -backend-config="storage_account_name=$(backendStorageAccount)" \
+                        -backend-config="container_name=$(backendContainer)" \
+                        -backend-config="key=$(backendKey)"
+                    workingDirectory: $(workingDirectory)
+
+                - task: AzureCLI@2
+                  displayName: 'Terraform Apply'
+                  inputs:
+                    azureSubscription: $(azureServiceConnection)
+                    scriptType: 'bash'
+                    scriptLocation: 'inlineScript'
+                    inlineScript: |
+                      cd $(workingDirectory)
+                      terraform apply -auto-approve tfplan
+
+                      # Output important values
+                      echo "##[section]Deployment Outputs"
+                      terraform output
+                    workingDirectory: $(workingDirectory)
+
+                - task: Bash@3
+                  displayName: 'Verify AKS Cluster'
+                  inputs:
+                    targetType: 'inline'
+                    script: |
+                      cd $(workingDirectory)
+
+                      # Get cluster name and resource group
+                      CLUSTER_NAME=$(terraform output -raw aks_cluster_name)
+                      RG_NAME=$(terraform output -raw resource_group_name)
+
+                      echo "Verifying AKS cluster: $CLUSTER_NAME in $RG_NAME"
+
+                      # Get AKS credentials
+                      az aks get-credentials --resource-group $RG_NAME --name $CLUSTER_NAME --overwrite-existing
+
+                      # Check cluster health
+                      kubectl get nodes
+                      kubectl get pods --all-namespaces
+
+                      echo "##[section]AKS cluster verification completed successfully"
+                    workingDirectory: $(workingDirectory)

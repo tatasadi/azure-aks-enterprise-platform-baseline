@@ -644,14 +644,125 @@ kubectl uncordon <node-name>
 
 ---
 
+## CI/CD Pipeline Operations
+
+### Running Infrastructure Pipeline
+
+The infrastructure pipeline automates Terraform deployments. See [pipelines/README.md](../pipelines/README.md) for detailed setup.
+
+**Trigger Manually:**
+```bash
+# In Azure DevOps
+# Pipelines → Infrastructure Pipeline → Run pipeline
+# Select branch and review plan before approving Apply stage
+```
+
+**Monitor Pipeline:**
+```bash
+# View pipeline status
+az pipelines show --name "Infrastructure Pipeline" --organization https://dev.azure.com/yourorg --project yourproject
+
+# View latest run
+az pipelines runs list --pipeline-name "Infrastructure Pipeline" --organization https://dev.azure.com/yourorg --project yourproject --top 1
+```
+
+**Review Terraform Plan:**
+1. Navigate to pipeline run in Azure DevOps
+2. Go to the "Plan" stage
+3. Download "plan-output" artifact
+4. Review changes before approving Apply stage
+
+### Running Application Pipeline
+
+The application pipeline builds and deploys the sample API application.
+
+**Trigger Manually:**
+```bash
+# In Azure DevOps
+# Pipelines → Application Pipeline → Run pipeline
+# Select branch and monitor deployment stages
+```
+
+**Verify Deployment:**
+```bash
+# Check deployment status
+kubectl rollout status deployment/sample-api -n demo-app
+
+# View pods
+kubectl get pods -n demo-app
+
+# Check application logs
+kubectl logs -n demo-app -l app=sample-api --tail=50
+
+# Test application endpoint
+INGRESS_IP=$(kubectl get ingress -n demo-app sample-api -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+curl -H "Host: demo.aks.internal" http://$INGRESS_IP/health
+```
+
+**Rollback Application Deployment:**
+```bash
+# View deployment history
+kubectl rollout history deployment/sample-api -n demo-app
+
+# Rollback to previous version
+kubectl rollout undo deployment/sample-api -n demo-app
+
+# Rollback to specific revision
+kubectl rollout undo deployment/sample-api -n demo-app --to-revision=2
+
+# Monitor rollback
+kubectl rollout status deployment/sample-api -n demo-app
+```
+
+### Pipeline Troubleshooting
+
+**Issue: Service connection not authorized**
+```bash
+# Grant pipeline permissions
+# Azure DevOps → Project Settings → Service connections
+# Select the service connection → Security → Grant access to all pipelines
+```
+
+**Issue: Terraform state lock**
+```bash
+# Check for lock
+az storage blob show \
+  --account-name sttfstateta \
+  --container-name tfstate \
+  --name azure-aks-dev.tfstate \
+  --query "properties.lease.state"
+
+# Break lock if needed (ensure no other applies are running!)
+az storage blob lease break \
+  --account-name sttfstateta \
+  --container-name tfstate \
+  --blob-name azure-aks-dev.tfstate
+```
+
+**Issue: Image pull errors in deployment**
+```bash
+# Verify ACR integration
+kubectl get pods -n demo-app -o yaml | grep -A 5 "imagePullSecrets"
+
+# Check ACR role assignment
+az role assignment list --assignee $(az aks show -g aksplatform-dev-rg -n aksplatform-dev-aks --query identityProfile.kubeletidentity.clientId -o tsv) --all
+
+# Manually test ACR access
+az acr login --name aksplatformdevacr
+docker pull aksplatformdevacr.azurecr.io/sample-api:latest
+```
+
+---
+
 ## Additional Resources
 
 - [Architecture Documentation](architecture.md)
 - [Dashboard Guide](dashboards.md)
 - [Policy Documentation](../platform/policies/README.md)
+- [CI/CD Pipelines](../pipelines/README.md)
 - [AKS Best Practices](https://learn.microsoft.com/azure/aks/best-practices)
 - [Kubernetes Troubleshooting](https://kubernetes.io/docs/tasks/debug/)
 
 ---
 
-**Last Updated**: 2026-03-09
+**Last Updated**: 2026-03-10
